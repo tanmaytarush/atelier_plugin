@@ -13,7 +13,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/tanmaydikshit/vto-shopify-app/internal/config"
+	"github.com/tanmaydikshit/vto-shopify-app/internal/shopifyauth"
 	"github.com/tanmaydikshit/vto-shopify-app/internal/store"
+	"github.com/tanmaydikshit/vto-shopify-app/internal/vto"
 )
 
 func main() {
@@ -35,10 +37,15 @@ func main() {
 	}
 	defer st.Close()
 
+	oauth := shopifyauth.NewOAuthHandler(cfg, st)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	r.Get("/auth/install", oauth.Install)
+	r.Get("/auth/callback", oauth.Callback)
 
 	// Liveness probe. Hosts (Fly.io, Render) and shopify tunnels hit this to
 	// confirm the process is running. Keep it dependency free - it must answer
@@ -47,13 +54,22 @@ func main() {
 	r.Get("/healthz", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	r.Route("/apps/vto", func(pr chi.Router) {
+		pr.Use(shopifyauth.VerifyAppProxy(cfg.ShopifyAPISecret))
+		pr.Post("/upload", vtoHandler.Upload) // TODO: add upload handler
+		pr.Post("/tryon", vtoHandler.TryOn)   // TODO: add try-on handler
+	})
+
+	n8n := vto.NewClient(cfg.VTOUploadWebhook, cfg.VTOTryonWebhook)
+	// n8n gets passed into the upload/tryon handlers in 1.6/1.7.
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
-		ReadTimeout:  15 & time.Second,
+		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second, // revisit once try-on render latency
 		IdleTimeout:  60 * time.Second,
 	}
