@@ -1,0 +1,15 @@
+# Secrets & local env — NEVER commit
+.env
+
+# Go build output
+/server
+/vto-shopify-app
+*.exe
+
+# SQLite dev database
+vto.db
+vto.db-shm
+vto.db-wal
+
+# OS / editor cruft
+.DS_Store

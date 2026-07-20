@@ -196,11 +196,21 @@ PORT=8080
 
 ## 8. Suggested Go dependencies
 
+**Dependency philosophy — prefer standardized, well-maintained libraries over hand-rolled code
+wherever a mature one exists.** Do not reimplement env parsing, HMAC-signature scaffolding, SQL
+mapping, etc. by hand when a widely-used, actively-maintained package solves it. Reserve hand-written
+code for the parts that are genuinely app-specific (the App Proxy signature *check* itself, the n8n
+pass-through, business logic). When picking a library, favor: active maintenance, wide adoption,
+small focused scope over kitchen-sink frameworks. Caveat — do *not* pull in a package just because an
+IDE auto-completed it; confirm it actually does what you need (e.g. `honnef.co/go/tools/config` is
+staticcheck's linter config, **not** an application config loader).
+
 ```
 github.com/go-chi/chi/v5              # router
 github.com/bold-commerce/go-shopify   # Admin API + OAuth helpers
 github.com/jmoiron/sqlx               # or gorm.io/gorm, for shop/token storage
-github.com/joho/godotenv              # local env loading
+github.com/joho/godotenv              # local .env loading (dev convenience)
+github.com/caarlos0/env/v11           # env-vars → Config struct via tags (replaces manual os.Getenv + validation)
 ```
 
 ---
