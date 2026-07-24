@@ -57,20 +57,22 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
+	// n8n client + VTO HTTP handler. Declared before the route group below
+	// because the route registration references vtoHandler.
+	n8n := vto.NewClient(cfg.VTOUploadWebhook, cfg.VTOTryonWebhook)
+	vtoHandler := vto.NewHandler(n8n)
+
 	r.Route("/apps/vto", func(pr chi.Router) {
 		pr.Use(shopifyauth.VerifyAppProxy(cfg.ShopifyAPISecret))
-		pr.Post("/upload", vtoHandler.Upload) // TODO: add upload handler
-		pr.Post("/tryon", vtoHandler.TryOn)   // TODO: add try-on handler
+		pr.Post("/upload", vtoHandler.Upload)
+		pr.Post("/tryon", vtoHandler.TryOn)
 	})
-
-	n8n := vto.NewClient(cfg.VTOUploadWebhook, cfg.VTOTryonWebhook)
-	// n8n gets passed into the upload/tryon handlers in 1.6/1.7.
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second, // revisit once try-on render latency
+		ReadTimeout:  30 * time.Second,  // room for a ~10MB photo upload on mobile
+		WriteTimeout: 130 * time.Second, // must exceed the n8n client's 120s synchronous try-on timeout
 		IdleTimeout:  60 * time.Second,
 	}
 
